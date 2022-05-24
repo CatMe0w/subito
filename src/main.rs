@@ -1,3 +1,4 @@
+use rusqlite::{Connection, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -39,9 +40,66 @@ struct Comment {
     time: String,
     post_id: i64,
 }
+
 #[tokio::main]
-async fn main() {
-    fetch_thread(7831278321).await;
+async fn main() -> Result<()> {
+    let conn = Connection::open("proma.db")?;
+    match setup_tables(&conn) {
+        Ok(_) => println!("Tables created"),
+        Err(_) => println!("Tables already exist, continuing"),
+    }
+
+    let client = reqwest::Client::new();
+    fetch_thread(7831278321, client).await?;
+    Ok(())
+}
+
+fn setup_tables(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "create table user(
+        id numeric primary key not null,
+        username text,
+        nickname text,
+        avatar text not null)",
+        [],
+    )?;
+    conn.execute(
+        "create table thread(
+        id numeric primary key not null,
+        title text not null,
+        user_id numeric not null,
+        reply_num numeric not null,
+        is_good numeric not null,
+        foreign key(user_id) references user(id))",
+        [],
+    )?;
+    conn.execute(
+        "create table post(
+        id numeric primary key not null,
+        floor numeric not null,
+        user_id numeric not null,
+        content text,
+        time text not null,
+        comment_num numeric not null,
+        signature text,
+        tail text,
+        thread_id numeric not null,
+        foreign key(user_id) references user(id),
+        foreign key(thread_id) references thread(id))",
+        [],
+    )?;
+    conn.execute(
+        "create table comment(
+        id numeric primary key not null,
+        user_id numeric not null,
+        content text,
+        time text not null,
+        post_id numeric not null,
+        foreign key(user_id) references user(id),
+        foreign key(post_id) references post(id))",
+        [],
+    )?;
+    Ok(())
 }
 
 fn make_sign(post_body: &BTreeMap<&str, &str>) -> String {
