@@ -46,11 +46,15 @@ async fn main() -> Result<()> {
     let conn = Connection::open("proma.db")?;
     match setup_tables(&conn) {
         Ok(_) => println!("Tables created"),
-        Err(_) => println!("Tables already exist, continuing"),
+        Err(e) => match e.to_string().as_str() {
+            "table user already exists" => println!("Tables already exist, continuing"),
+            _ => panic!("Error: {}", e),
+        },
     }
 
     let client = reqwest::Client::new();
     fetch_thread(7831278321, client).await?;
+    
     Ok(())
 }
 
