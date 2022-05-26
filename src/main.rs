@@ -109,7 +109,7 @@ async fn fetch_thread(
         conn.execute(
             "insert or ignore into user values (?1,?2,?3,?4)",
             params![
-                user["id"].as_i64(),
+                user["id"].as_str(),
                 user["name"].as_str().unwrap_or(""),
                 user["name_show"].as_str(),
                 user["portrait"].as_str(),
@@ -120,12 +120,12 @@ async fn fetch_thread(
         conn.execute(
             "insert or ignore into post values (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
             params![
-                post["id"].as_i64(),
-                post["floor"].as_i64(),
-                post["author_id"].as_i64(),
+                post["id"].as_str(),
+                post["floor"].as_str(),
+                post["author_id"].as_str(),
                 post["content"].as_str(),
-                post["post_time"].as_str(),
-                post["sub_post_number"].as_i64(),
+                post["time"].as_str(),
+                post["sub_post_number"].as_str(),
                 post["signature"].as_str(),
                 post["tail"].as_str(),
                 thread_id,
