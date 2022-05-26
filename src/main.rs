@@ -1,21 +1,20 @@
-use rusqlite::{Connection, Result};
-use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use rusqlite::{params, Connection, Result};
+use serde_json::Value;
+use std::{collections::BTreeMap, error::Error};
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), Box<dyn Error>> {
     let conn = Connection::open("proma.db")?;
-    match setup_tables(&conn) {
-        Ok(_) => println!("Tables created"),
-        Err(e) => match e.to_string().as_str() {
+    if let Err(e) = setup_tables(&conn) {
+        match e.to_string().as_str() {
             "table user already exists" => println!("Tables already exist, continuing"),
             _ => panic!("Error: {}", e),
-        },
+        }
     }
 
     let client = reqwest::Client::new();
-    fetch_thread(7831278321, client).await?;
-    
+    fetch_thread(7831278321, &client, &conn).await?;
+
     Ok(())
 }
 
@@ -76,4 +75,62 @@ fn make_sign(post_body: &BTreeMap<&str, &str>) -> String {
     }
     sign.push_str("tiebaclient!!!");
     format!("{:X}", md5::compute(sign))
+}
+
+async fn fetch_thread(
+    thread_id: i64,
+    client: &reqwest::Client,
+    conn: &Connection,
+) -> Result<(), Box<dyn Error>> {
+    // fetch json
+    let mut post_body = BTreeMap::new();
+    let kz = thread_id.to_string(); // to make borrow checker happy
+    post_body.insert("kz", kz.as_str());
+    post_body.insert("_client_version", "9.9.8.32");
+    let sign = make_sign(&post_body);
+    post_body.insert("sign", sign.as_str());
+
+    let res = client
+        .post("https://tieba.baidu.com/c/f/pb/page")
+        .form(&post_body)
+        .send()
+        .await?
+        .text()
+        .await?;
+
+    // parse json
+    let res: Value = serde_json::from_str(&res)?;
+    // ok i decided to keep it untyped since constructing from baidu's shit is totally a pain
+    let user_list: Value = serde_json::from_value(res["user_list"].clone())?;
+    let post_list: Value = serde_json::from_value(res["post_list"].clone())?;
+
+    // save to db
+    for user in user_list.as_array().unwrap() {
+        conn.execute(
+            "insert or ignore into user values (?1,?2,?3,?4)",
+            params![
+                user["id"].as_i64(),
+                user["name"].as_str().unwrap_or(""),
+                user["name_show"].as_str(),
+                user["portrait"].as_str(),
+            ],
+        )?;
+    }
+    for post in post_list.as_array().unwrap() {
+        conn.execute(
+            "insert or ignore into post values (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
+            params![
+                post["id"].as_i64(),
+                post["floor"].as_i64(),
+                post["author_id"].as_i64(),
+                post["content"].as_str(),
+                post["post_time"].as_str(),
+                post["sub_post_number"].as_i64(),
+                post["signature"].as_str(),
+                post["tail"].as_str(),
+                thread_id,
+            ],
+        )?;
+    }
+    Ok(())
 }
