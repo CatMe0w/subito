@@ -1,3 +1,5 @@
+use chrono::{TimeZone, Utc};
+use chrono_tz::Asia::Shanghai;
 use rusqlite::{params, Connection, Result};
 use serde_json::Value;
 use std::{collections::BTreeMap, error::Error};
@@ -77,6 +79,14 @@ fn make_sign(post_body: &BTreeMap<&str, &str>) -> String {
     format!("{:X}", md5::compute(sign))
 }
 
+fn get_cst_datetime(timestamp: String) -> String {
+    // cst: china standard time, utc+8
+    let timestamp = timestamp.parse::<i64>().unwrap();
+    let datetime = Utc.timestamp(timestamp, 0).with_timezone(&Shanghai);
+    let datetime = datetime.format("%Y-%m-%d %H:%M:%S").to_string();
+    datetime
+}
+
 async fn fetch_thread(
     thread_id: i64,
     client: &reqwest::Client,
@@ -124,7 +134,7 @@ async fn fetch_thread(
                 post["floor"].as_str(),
                 post["author_id"].as_str(),
                 post["content"].as_str(),
-                post["time"].as_str(),
+                get_cst_datetime(post["time"].as_str().unwrap().to_string()),
                 post["sub_post_number"].as_str(),
                 post["signature"].as_str(),
                 post["tail"].as_str(),
