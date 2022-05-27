@@ -12,13 +12,10 @@ pub struct User {
 
 pub struct Thread {
     pub thread_id: i64,
-    pub op_user_id: i64,
     pub title: String,
     pub user_id: i64,
-    pub time: String,
     pub reply_num: i32,
     pub is_good: bool,
-    pub op_post_content: Vec<Content>,
 }
 
 pub struct Post {
