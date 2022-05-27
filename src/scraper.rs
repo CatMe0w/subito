@@ -1,3 +1,4 @@
+use crate::{content_parser::parse, Post, User};
 use chrono::{TimeZone, Utc};
 use chrono_tz::Asia::Shanghai;
 use rusqlite::{params, Connection, Result};
@@ -25,9 +26,11 @@ fn get_cst_datetime(timestamp: String) -> String {
 
 pub async fn fetch_thread(
     thread_id: i64,
+    pseudo_page: i32,
+    post_id: Option<i64>,
     client: &reqwest::Client,
     conn: &Connection,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(Vec<User>, Vec<Post>), Box<dyn Error>> {
     // fetch json
     let mut post_body = BTreeMap::new();
     let kz = thread_id.to_string(); // to make borrow checker happy
@@ -52,32 +55,32 @@ pub async fn fetch_thread(
 
     // save to db
     // todo: remove db executions from scraper module?
+    let mut users: Vec<User> = Vec::new();
     for user in user_list.as_array().unwrap() {
-        conn.execute(
-            "insert or ignore into user values (?1,?2,?3,?4)",
-            params![
-                user["id"].as_str(),
-                user["name"].as_str().unwrap_or(""),
-                user["name_show"].as_str(),
-                user["portrait"].as_str(),
-            ],
-        )?;
+        users.push(User {
+            user_id: user["id"].as_str().unwrap().parse()?,
+            username: user["name"].as_str().map(str::to_string), // keep the same behavior as og proma
+            nickname: user["name_show"].as_str().unwrap().to_string(),
+            avatar: user["portrait"].as_str().unwrap().to_string(),
+        });
+
+        
     }
+
+    let mut posts: Vec<Post> = Vec::new();
     for post in post_list.as_array().unwrap() {
-        conn.execute(
-            "insert or ignore into post values (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
-            params![
-                post["id"].as_str(),
-                post["floor"].as_str(),
-                post["author_id"].as_str(),
-                post["content"].as_str(),
-                get_cst_datetime(post["time"].as_str().unwrap().to_string()),
-                post["sub_post_number"].as_str(),
-                post["signature"].as_str(),
-                post["tail"].as_str(),
-                thread_id,
-            ],
-        )?;
+        posts.push(Post {
+            post_id: post["id"].as_str().unwrap().parse()?,
+            floor: post["floor"].as_str().unwrap().parse()?,
+            user_id: post["author_id"].as_str().unwrap().parse()?,
+            content: parse(&post["content"])?,
+            time: get_cst_datetime(post["time"].as_str().unwrap().to_string()),
+            comment_num: post["sub_post_number"].as_str().unwrap().parse()?,
+            signature: post["signature"].as_str().map(str::to_string),
+            tail: post["tail"].as_str().map(str::to_string),
+        });
+
+        
     }
-    Ok(())
+    Ok((users, posts))
 }

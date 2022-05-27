@@ -1,4 +1,4 @@
-use rusqlite::{Connection, Result};
+use rusqlite::{params, Connection, Result};
 use std::error::Error;
 use subito::scraper::fetch_thread;
 
@@ -13,7 +13,32 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let client = reqwest::Client::new();
-    fetch_thread(7831278321, &client, &conn).await?;
+    let thread_id = 7831278321;
+    let (users, posts) = fetch_thread(thread_id, 1, None, &client, &conn).await?;
+    
+    for user in users {
+        conn.execute(
+            "insert or ignore into user values (?1,?2,?3,?4)",
+            params![user.user_id, user.username, user.nickname, user.avatar],
+        )?;
+    }
+
+    for post in posts {
+        conn.execute(
+            "insert or ignore into post values (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
+            params![
+                post.post_id,
+                post.floor,
+                post.user_id,
+                serde_json::to_string(&post.content)?,
+                post.time,
+                post.comment_num,
+                post.signature,
+                post.tail,
+                thread_id,
+            ],
+        )?;
+    }
 
     Ok(())
 }
