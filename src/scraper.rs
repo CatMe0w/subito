@@ -71,8 +71,8 @@ pub async fn fetch_thread(
             content: parse(&post["content"])?,
             time: get_cst_datetime(post["time"].as_str().unwrap().to_string()),
             comment_num: post["sub_post_number"].as_str().unwrap().parse()?,
-            signature: post["signature"].as_str().map(str::to_string),
-            tail: post["tail"].as_str().map(str::to_string),
+            signature: None,
+            tail: None,
         });
     }
 
