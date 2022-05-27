@@ -14,8 +14,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let client = reqwest::Client::new();
     let thread_id = 7831278321;
-    let (users, posts) = fetch_thread(thread_id, 1, None, &client, &conn).await?;
-    
+    let (users, posts) = fetch_thread(thread_id, 1, None, &client).await?;
+
     for user in users {
         conn.execute(
             "insert or ignore into user values (?1,?2,?3,?4)",

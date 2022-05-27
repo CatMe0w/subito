@@ -29,7 +29,6 @@ pub async fn fetch_thread(
     pseudo_page: i32,
     post_id: Option<i64>,
     client: &reqwest::Client,
-    conn: &Connection,
 ) -> Result<(Vec<User>, Vec<Post>), Box<dyn Error>> {
     // fetch json
     let mut post_body = BTreeMap::new();
@@ -53,8 +52,6 @@ pub async fn fetch_thread(
     let user_list: Value = serde_json::from_value(res["user_list"].clone())?;
     let post_list: Value = serde_json::from_value(res["post_list"].clone())?;
 
-    // save to db
-    // todo: remove db executions from scraper module?
     let mut users: Vec<User> = Vec::new();
     for user in user_list.as_array().unwrap() {
         users.push(User {
@@ -63,8 +60,6 @@ pub async fn fetch_thread(
             nickname: user["name_show"].as_str().unwrap().to_string(),
             avatar: user["portrait"].as_str().unwrap().to_string(),
         });
-
-        
     }
 
     let mut posts: Vec<Post> = Vec::new();
@@ -79,8 +74,7 @@ pub async fn fetch_thread(
             signature: post["signature"].as_str().map(str::to_string),
             tail: post["tail"].as_str().map(str::to_string),
         });
-
-        
     }
+
     Ok((users, posts))
 }
